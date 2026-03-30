@@ -1,213 +1,118 @@
-const state = {
-  token: null,
-  user: null,
-  bootstrap: null
-};
-
 const el = (id) => document.getElementById(id);
 
-async function api(path, options = {}) {
-  const headers = options.headers || {};
-  if (state.token) headers.Authorization = `Bearer ${state.token}`;
-  const response = await fetch(path, { ...options, headers });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Request failed');
-  return data;
+const dataFeeds = {
+  email: [
+    { title: 'Design sprint summary', sub: 'Monica - 5 min ago' },
+    { title: 'Cloud invoice approved', sub: 'Finance Ops - 12 min ago' },
+    { title: 'Security audit pass', sub: 'SecTeam - 21 min ago' },
+    { title: 'Launch checklist ready', sub: 'Program Office - 28 min ago' }
+  ],
+  jobs: [
+    { title: 'Senior AI Product Manager', sub: 'Tesla · Austin' },
+    { title: 'ML Platform Architect', sub: 'NVIDIA · Remote' },
+    { title: 'Principal Data Strategist', sub: 'Microsoft · Seattle' },
+    { title: 'Innovation Program Lead', sub: 'Meta · Menlo Park' }
+  ],
+  whatsapp: [
+    { title: 'Family Group', sub: 'Dinner plan updated' },
+    { title: 'Project Apex', sub: 'Prototype review at 6:00 PM' },
+    { title: 'Gym Buddy', sub: 'Leg day moved to tomorrow' },
+    { title: 'Travel Crew', sub: 'Tickets confirmed ✅' }
+  ]
+};
+
+function randomRotate(list) {
+  const copy = [...list];
+  const offset = Math.floor(Math.random() * copy.length);
+  return [...copy.slice(offset), ...copy.slice(0, offset)];
 }
 
-function disableForViewOnly(canMutate) {
-  ['t1Submit', 'draftPublishBtn', 'subscriptionBtn', 'certSaveBtn'].forEach((id) => {
-    el(id).disabled = !canMutate;
+function renderList(target, items) {
+  target.innerHTML = items
+    .map((item) => `<li><span class="item-title">${item.title}</span><span class="item-sub">${item.sub}</span></li>`)
+    .join('');
+}
+
+function stamp(id, label) {
+  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  el(id).textContent = `${label} ${time}`;
+}
+
+function updateEmail() {
+  renderList(el('emailList'), randomRotate(dataFeeds.email));
+  stamp('emailRefresh', 'Synced');
+}
+
+function updateJobs() {
+  renderList(el('jobsList'), randomRotate(dataFeeds.jobs));
+  stamp('jobsRefresh', 'Updated');
+}
+
+function updateWhats() {
+  renderList(el('whatsList'), randomRotate(dataFeeds.whatsapp));
+  stamp('whatsRefresh', 'Pulse');
+}
+
+function updateLifeTracker() {
+  const now = new Date();
+  const steps = 5000 + Math.floor(Math.random() * 6000);
+  const hydration = (1.5 + Math.random() * 1.4).toFixed(1);
+  const focus = 65 + Math.floor(Math.random() * 35);
+  const sleepDebt = Math.max(0, (7.8 - (5.8 + Math.random() * 2.5))).toFixed(1);
+
+  el('lifeMetrics').innerHTML = `
+    <div class="metric"><span>Current Hour</span><strong>${now.getHours().toString().padStart(2, '0')}:00</strong></div>
+    <div class="metric"><span>Steps</span><strong>${steps.toLocaleString()}</strong></div>
+    <div class="metric"><span>Hydration</span><strong>${hydration} L</strong></div>
+    <div class="metric"><span>Focus Index</span><strong>${focus}%</strong></div>
+    <div class="metric"><span>Sleep Debt</span><strong>${sleepDebt} h</strong></div>
+    <div class="metric"><span>Recovery</span><strong>${sleepDebt < 1.2 ? 'Optimal' : 'Moderate'}</strong></div>
+  `;
+
+  stamp('lifeRefresh', 'Hourly scan');
+}
+
+function updateClock() {
+  const now = new Date();
+  el('dateStamp').textContent = now.toLocaleDateString([], {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric'
+  });
+  el('timeStamp').textContent = now.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+
+  const coreLoad = (96.5 + Math.random() * 3.4).toFixed(1);
+  el('coreLoad').textContent = `${coreLoad}%`;
+}
+
+function shiftPanels() {
+  const panels = Array.from(document.querySelectorAll('.holo-panel'));
+  const shouldShift = window.innerWidth > 1100;
+
+  panels.forEach((panel, idx) => {
+    panel.style.transform = shouldShift && idx % 2 === 0 ? `translateY(${Math.sin(Date.now() / 900 + idx) * 4}px)` : '';
   });
 }
 
-function renderStats(data) {
-  el('stats').innerHTML = `
-    <div class="card"><strong>User</strong><div>${data.user.user_id}</div></div>
-    <div class="card"><strong>Role</strong><div>${data.user.role}</div></div>
-    <div class="card"><strong>Pending Approvals</strong><div>${data.pendingCount}</div></div>
-    <div class="card"><strong>Published APIs</strong><div>${data.apiCount}</div></div>
-  `;
+function boot() {
+  updateEmail();
+  updateJobs();
+  updateWhats();
+  updateLifeTracker();
+  updateClock();
+
+  setInterval(updateEmail, 5000);
+  setInterval(updateJobs, 7000);
+  setInterval(updateWhats, 6000);
+  setInterval(updateLifeTracker, 9000);
+  setInterval(updateClock, 1000);
+  setInterval(shiftPanels, 1400);
+
+  window.addEventListener('resize', shiftPanels);
 }
 
-async function loadBootstrap() {
-  const boot = await api('/api/bootstrap');
-  state.bootstrap = boot;
-  el('userId').innerHTML = boot.users.map((u) => `<option value="${u.user_id}">${u.user_id} (${u.role}${u.is_selected ? ', selected' : ', view-only'})</option>`).join('');
-  el('apiOrg').innerHTML = boot.orgs.map((o) => `<option>${o}</option>`).join('');
-  el('apiCatalog').innerHTML = boot.catalogs.map((c) => `<option>${c}</option>`).join('');
-}
-
-async function refreshDashboard() {
-  const data = await api('/api/dashboard');
-  renderStats(data);
-  disableForViewOnly(data.canMutate);
-}
-
-async function refreshApprovals() {
-  const approvals = await api('/api/approvals');
-  const box = el('approvals');
-  box.innerHTML = approvals.map((a) => `
-    <div class="approval">
-      <div><strong>#${a.id}</strong> ${a.task_type} - ${a.status}</div>
-      <div>Requested by ${a.requested_by}</div>
-      <pre>${JSON.stringify(a.payload, null, 2)}</pre>
-      ${a.status === 'PENDING' && state.user.role === 'ADMIN' ? `
-        <button onclick="decide(${a.id}, 'APPROVED')">Approve</button>
-        <button onclick="decide(${a.id}, 'REJECTED')">Reject</button>
-      ` : ''}
-    </div>
-  `).join('');
-}
-
-async function refreshCerts() {
-  const certs = await api('/api/task3/certs');
-  el('certTable').querySelector('tbody').innerHTML = certs.map((c) => `
-    <tr>
-      <td>${c.cert_name}</td>
-      <td>${c.cert_type}</td>
-      <td>${c.owner}</td>
-      <td>${c.expires_on}</td>
-      <td>${c.daysLeft}</td>
-      <td><span class="tag ${c.alert}">${c.alert}</span></td>
-    </tr>
-  `).join('');
-}
-
-window.decide = async (id, decision) => {
-  try {
-    await api(`/api/approvals/${id}/decision`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ decision })
-    });
-    await Promise.all([refreshDashboard(), refreshApprovals(), refreshCerts()]);
-  } catch (e) {
-    alert(e.message);
-  }
-};
-
-el('loginBtn').addEventListener('click', async () => {
-  try {
-    const data = await api('/api/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: el('userId').value, password: el('password').value })
-    });
-
-    state.token = data.token;
-    state.user = data.user;
-
-    if (data.user.mustReset) {
-      const promptMessage = `Temporary generated password: ${data.generatedPassword}\nCopy this password and set your own now (min 8 chars).`;
-      const next = window.prompt(promptMessage, data.generatedPassword);
-      if (next) {
-        await api('/api/reset-password', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ newPassword: next })
-        });
-        alert('Password reset complete. Use this password for next login.');
-      }
-    }
-
-    el('loginCard').classList.add('hidden');
-    el('portal').classList.remove('hidden');
-    await Promise.all([refreshDashboard(), refreshApprovals(), refreshCerts()]);
-  } catch (e) {
-    alert(e.message);
-  }
-});
-
-el('t1Submit').addEventListener('click', async () => {
-  try {
-    const orgs = el('t1Orgs').value.split(',').map((s) => s.trim()).filter(Boolean);
-    await api('/api/task1/request-access', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: el('t1UserId').value, orgs, role: el('t1Role').value })
-    });
-    alert('Access request submitted for approval');
-    await refreshApprovals();
-  } catch (e) {
-    alert(e.message);
-  }
-});
-
-const readFileText = (file) => new Promise((resolve, reject) => {
-  if (!file) return resolve('');
-  const reader = new FileReader();
-  reader.onload = () => resolve(String(reader.result || ''));
-  reader.onerror = () => reject(new Error('Unable to read file'));
-  reader.readAsText(file);
-});
-
-el('draftPublishBtn').addEventListener('click', async () => {
-  try {
-    const swaggerText = await readFileText(el('swaggerFile').files[0]);
-    const productText = await readFileText(el('productFile').files[0]);
-
-    const data = await api('/api/task2/prepare', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        apiName: el('apiName').value,
-        org: el('apiOrg').value,
-        catalog: el('apiCatalog').value,
-        version: el('apiVersion').value,
-        backendTargets: el('apiBackends').value,
-        oauthEnabled: el('apiOauth').checked,
-        swaggerText,
-        productText
-      })
-    });
-
-    const lines = data.findings.map((f) => `- [${f.severity}] ${f.message}`).join('\n');
-    alert(`Draft completed. Changes detected:\n${lines}\n\nPublish request sent for approval.`);
-    await refreshApprovals();
-  } catch (e) {
-    alert(e.message);
-  }
-});
-
-el('subscriptionBtn').addEventListener('click', async () => {
-  try {
-    const data = await api('/api/task2/subscription', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        org: el('apiOrg').value,
-        catalog: el('apiCatalog').value,
-        consumerOrg: el('consumerOrg').value,
-        appName: el('appName').value,
-        productName: el('productName').value
-      })
-    });
-
-    alert(`App credentials generated.\nClient ID: ${data.clientId}\nClient Secret: ${data.clientSecret}\nCopy now and store securely.`);
-    await refreshApprovals();
-  } catch (e) {
-    alert(e.message);
-  }
-});
-
-el('certSaveBtn').addEventListener('click', async () => {
-  try {
-    await api('/api/task3/certs', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        certName: el('certName').value,
-        certType: el('certType').value,
-        owner: el('certOwner').value,
-        expiresOn: el('certExpiry').value,
-        notes: el('certNotes').value
-      })
-    });
-    await refreshCerts();
-  } catch (e) {
-    alert(e.message);
-  }
-});
-
-loadBootstrap().catch((e) => alert(e.message));
+boot();
