@@ -1,0 +1,11 @@
+{
+  "name": "ibm-apic-portal",
+  "version": "1.0.2",
+  "description": "IBM API Connect workflow portal for access, publish, and certificate monitoring",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "check": "node --check server.js && node --check public/app.js && node --check db.js"
+  }
+}

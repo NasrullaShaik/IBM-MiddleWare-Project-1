@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ibm-apic-portal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ibm-apic-portal
+  template:
+    metadata:
+      labels:
+        app: ibm-apic-portal
+    spec:
+      containers:
+        - name: portal
+          image: ibm-apic-portal:latest
+          ports:
+            - containerPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ibm-apic-portal-svc
+spec:
+  selector:
+    app: ibm-apic-portal
+  ports:
+    - port: 80
+      targetPort: 3000
