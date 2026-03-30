@@ -1,58 +1,28 @@
 # IBM API Connect Workflow Portal
 
-This project now includes a working web portal for IBM API Connect admin operations with login controls, approval gates, API publish checks, subscription workflow, and certificate monitoring.
+This project now contains a dynamic web experience for IBM API Connect operations with approval workflows.
 
-## Features mapped to your request
+## Current focus delivered (Module 1 refined)
 
-### Initial login + forced password reset
-- User chooses a `userId` from the login dropdown.
-- First successful login requires password reset.
-- A generated temporary password is shown in popup and user is prompted to copy/save it and set a new one.
+### Dynamic/Styled UX
+- Modern glass-style UI theme and dashboard cards.
+- Toast notifications and modal popups for operation output.
+- CLI-style step timeline to show exactly what happened during execution.
 
-### T1 - Give Access to User in Org
-- Form accepts target `userId`, multiple orgs, and role.
-- Submission creates `PENDING` approval record.
-- Only after admin approval does workflow move forward.
+### Task 1 (Provider Org user access) mapped from your bash script
+The Task1 UI now models the same flow as your CLI script:
+1. APIC login command preview
+2. Provider org selection validation
+3. Role selection
+4. LDAP user existence check
+5. User creation when absent
+6. User URL resolution
+7. Org membership check
+8. Member create/update with selected role
 
-### T2 - API Publish + Subscription
-- Detects whether API exists in selected Org + Catalog.
-- Upload Swagger and Product JSON to draft.
-- If existing:
-  - Compares old vs new for OAuth and backend target changes.
-  - Saves old API backup in `backups/` with timestamp.
-  - Returns findings for popup display.
-- Publish request goes through approval queue.
-- Consumer app + subscription flow:
-  - Supports org/catalog selection.
-  - Generates clientId/clientSecret for new app and prompts user to copy.
-  - Subscription enters approval queue.
+Every run stores the output as an approval request (`TASK1_ACCESS`) and shows step-by-step logs in the interface.
 
-### T3 - Certificate Monitoring
-- Add APIM/DataPower cert records with expiry.
-- Dashboard table classifies alerts at:
-  - 3 months
-  - 2 months
-  - 1 month
-  - 15 days
-- Records are editable by adding refreshed cert entry with new expiry.
-
-### View-only restriction
-- Only selected users with role `ADMIN` / `PUBLISHER` can submit/publish.
-- Non-selected users default to view-only mode and action buttons are disabled.
-
-### Deploy anywhere (Local / Docker / OCP/K8s)
-- Local: Node.js startup.
-- Docker: included `Dockerfile`.
-- OCP/K8s: included `kubernetes/deployment.yaml`.
-
----
-
-## Tech stack
-- Node.js (built-in HTTP server)
-- JSON file persistence (`portal-data.json`)
-- Vanilla HTML/CSS/JS frontend
-
-## Quick start (Local)
+## Quick start
 
 ```bash
 node server.js
@@ -60,26 +30,11 @@ node server.js
 
 Open: `http://localhost:3000`
 
-Default seeded users:
-- `apic_admin` (ADMIN, selected)
-- `publisher1` (PUBLISHER, selected)
-- `viewer1` (VIEWER, view-only)
+Default users:
+- `apic_admin / Temp#1234`
+- `publisher1 / Temp#1234`
+- `viewer1 / Temp#1234` (view-only)
 
-Default password: `Temp#1234` (first login forces reset)
-
-## Docker
-
-```bash
-docker build -t ibm-apic-portal .
-docker run --rm -p 3000:3000 ibm-apic-portal
-```
-
-## OCP / Kubernetes
-
-```bash
-kubectl apply -f kubernetes/deployment.yaml
-```
-
-> You mentioned deployment details via Excel or key:value input. This implementation is ready to extend with an ingestion endpoint for CSV/Excel or key-value parser in next iteration.
-
-Persistence note: data is stored in `portal-data.json`, and the server uses Node.js built-in modules only (no external runtime dependencies), so it runs in restricted environments.
+## Notes
+- Data persistence uses local JSON file: `portal-data.json`.
+- This phase intentionally perfects Task1 UI + CLI-like behavior first, before moving to the next modules.

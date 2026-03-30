@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const DB_PATH = path.join(__dirname, 'portal-data.json');
 
@@ -14,7 +15,12 @@ const defaultState = {
   api_registry: [],
   subscriptions: [],
   certs: [],
-  counters: { approvals: 0, api_registry: 0, subscriptions: 0, certs: 0 }
+  counters: { approvals: 0, api_registry: 0, subscriptions: 0, certs: 0 },
+  apic: {
+    providerOrgs: ['payments-org', 'retail-org', 'core-bank-org'],
+    directoryUsers: {},
+    members: {}
+  }
 };
 
 const loadState = () => {
@@ -25,7 +31,16 @@ const loadState = () => {
 
   try {
     const data = JSON.parse(fs.readFileSync(DB_PATH, 'utf-8'));
-    return { ...defaultState, ...data };
+    return {
+      ...defaultState,
+      ...data,
+      apic: {
+        ...defaultState.apic,
+        ...(data.apic || {}),
+        directoryUsers: data.apic?.directoryUsers || {},
+        members: data.apic?.members || {}
+      }
+    };
   } catch {
     return JSON.parse(JSON.stringify(defaultState));
   }
@@ -33,6 +48,11 @@ const loadState = () => {
 
 const state = loadState();
 const save = () => fs.writeFileSync(DB_PATH, JSON.stringify(state, null, 2));
+
+const getOrgStore = (org) => {
+  if (!state.apic.directoryUsers[org]) state.apic.directoryUsers[org] = {};
+  if (!state.apic.members[org]) state.apic.members[org] = [];
+};
 
 const db = {
   listUsers() {
@@ -61,6 +81,56 @@ const db = {
     const session = state.sessions.find((s) => s.token === token);
     if (!session) return null;
     return this.getUser(session.user_id);
+  },
+
+  listProviderOrgs() {
+    return [...state.apic.providerOrgs];
+  },
+
+  getDirectoryUser(org, username) {
+    getOrgStore(org);
+    return state.apic.directoryUsers[org][username] || null;
+  },
+
+  ensureDirectoryUser(org, username) {
+    getOrgStore(org);
+    if (!state.apic.directoryUsers[org][username]) {
+      state.apic.directoryUsers[org][username] = {
+        username,
+        url: `https://mock-apic.local/${org}/users/${encodeURIComponent(username)}`,
+        created_at: new Date().toISOString()
+      };
+      save();
+    }
+    return state.apic.directoryUsers[org][username];
+  },
+
+  getMemberByUsername(org, username) {
+    getOrgStore(org);
+    return state.apic.members[org].find((m) => m.username === username) || null;
+  },
+
+  upsertMember(org, username, role, userUrl) {
+    getOrgStore(org);
+    const existing = this.getMemberByUsername(org, username);
+    if (existing) {
+      existing.role = role;
+      existing.updated_at = new Date().toISOString();
+      save();
+      return { type: 'UPDATED', member: existing };
+    }
+
+    const member = {
+      id: crypto.randomUUID(),
+      username,
+      role,
+      user_url: userUrl,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    state.apic.members[org].push(member);
+    save();
+    return { type: 'CREATED', member };
   },
 
   createApproval(taskType, payload, requestedBy) {

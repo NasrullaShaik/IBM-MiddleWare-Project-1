@@ -7,89 +7,52 @@
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-  <header>
-    <h1>IBM API Connect Operations Portal</h1>
-    <p>Access Management, API Publish, and Certificate Monitoring</p>
+  <div id="toast" class="toast hidden"></div>
+
+  <header class="hero">
+    <h1>IBM API Connect Workflow Studio</h1>
+    <p>Dynamic, approval-driven operations for Provider Orgs</p>
   </header>
 
   <main>
-    <section id="loginCard" class="card">
-      <h2>Login</h2>
-      <div class="form-row">
-        <label>User ID</label>
-        <select id="userId"></select>
-      </div>
-      <div class="form-row">
-        <label>Password</label>
-        <input id="password" type="password" value="Temp#1234" />
+    <section id="loginCard" class="card glass">
+      <h2>Secure Login</h2>
+      <div class="form-grid cols-2">
+        <div>
+          <label>User ID</label>
+          <select id="userId"></select>
+        </div>
+        <div>
+          <label>Password</label>
+          <input id="password" type="password" value="Temp#1234" />
+        </div>
       </div>
       <button id="loginBtn">Login</button>
-      <p class="hint">Selected users can submit requests. Non-selected users are view-only.</p>
+      <p class="hint">Selected users can execute workflows. Others remain view-only.</p>
     </section>
 
     <section id="portal" class="hidden">
-      <div class="card grid-4" id="stats"></div>
+      <div class="card stats" id="stats"></div>
 
-      <section class="card">
-        <h2>T1 - Give Access to User in Org</h2>
-        <div class="grid-3">
-          <input id="t1UserId" placeholder="Target User ID" />
-          <input id="t1Orgs" placeholder="Org list comma separated" />
-          <select id="t1Role">
-            <option>Viewer</option>
-            <option>Developer</option>
-            <option>Owner</option>
-          </select>
-        </div>
-        <button id="t1Submit">Submit for approval</button>
-      </section>
+      <section class="card glass">
+        <h2>Task 1 - Provider Org Access (CLI-like Flow)</h2>
+        <p class="hint">Modeled from your bash sequence: login → org lookup → user exists check → member create/update.</p>
 
-      <section class="card">
-        <h2>T2 - API Publish and Subscription</h2>
-        <div class="grid-3">
-          <input id="apiName" placeholder="API name" />
-          <select id="apiOrg"></select>
-          <select id="apiCatalog"></select>
+        <div class="form-grid cols-3">
+          <div><label>Management Server</label><input id="mgmtServer" value="https://your-mgmt-server" /></div>
+          <div><label>LDAP Registry</label><input id="ldapRegistry" value="your-ldap-registry" /></div>
+          <div><label>Admin User</label><input id="adminUser" value="admin" /></div>
+          <div><label>Admin Realm</label><input id="adminRealm" value="provider/default-idp-1" /></div>
+          <div><label>Provider Org</label><select id="providerOrg"></select></div>
+          <div><label>Role</label><select id="task1Role"></select></div>
+          <div><label>LDAP User ID</label><input id="task1Username" placeholder="exact LDAP uid" /></div>
         </div>
-        <div class="grid-3">
-          <input id="apiVersion" placeholder="Version (e.g., 1.0.1)" />
-          <input id="apiBackends" placeholder="Backend targets comma separated" />
-          <label class="inline"><input id="apiOauth" type="checkbox" /> OAuth Enabled</label>
-        </div>
-        <div class="grid-2">
-          <input id="swaggerFile" type="file" accept="application/json" />
-          <input id="productFile" type="file" accept="application/json" />
-        </div>
-        <button id="draftPublishBtn">Validate, Draft, and Request Publish Approval</button>
 
-        <h3>Consumer App + Subscribe</h3>
-        <div class="grid-3">
-          <input id="consumerOrg" placeholder="Consumer Org" />
-          <input id="appName" placeholder="App Name" />
-          <input id="productName" placeholder="Product Name" />
+        <div class="actions">
+          <button id="task1RunBtn">Run CLI-Style Workflow</button>
         </div>
-        <button id="subscriptionBtn">Create App + Subscribe (Approval)</button>
-      </section>
 
-      <section class="card">
-        <h2>T3 - Certificate Monitoring</h2>
-        <div class="grid-4">
-          <input id="certName" placeholder="Certificate Name" />
-          <select id="certType">
-            <option>APIM</option>
-            <option>DataPower</option>
-          </select>
-          <input id="certOwner" placeholder="Owner Team" />
-          <input id="certExpiry" type="date" />
-        </div>
-        <div class="grid-2">
-          <input id="certNotes" placeholder="Notes / renewal details" />
-          <button id="certSaveBtn">Save Certificate</button>
-        </div>
-        <table id="certTable">
-          <thead><tr><th>Name</th><th>Type</th><th>Owner</th><th>Expiry</th><th>Days Left</th><th>Alert</th></tr></thead>
-          <tbody></tbody>
-        </table>
+        <div id="task1Timeline" class="timeline"></div>
       </section>
 
       <section class="card">
@@ -98,6 +61,14 @@
       </section>
     </section>
   </main>
+
+  <div id="modal" class="modal hidden">
+    <div class="modal-content">
+      <h3 id="modalTitle">Workflow Output</h3>
+      <pre id="modalBody"></pre>
+      <button id="closeModal">Close</button>
+    </div>
+  </div>
 
   <script src="/app.js"></script>
 </body>

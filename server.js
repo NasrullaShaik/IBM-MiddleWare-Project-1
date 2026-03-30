@@ -54,6 +54,69 @@ const buildDiff = (oldApi, nextApi) => {
   return findings;
 };
 
+const runTask1CliStyle = (input) => {
+  const { mgmtServer, ldapRegistry, adminUser, adminRealm, providerOrg, role, username } = input;
+  const logs = [];
+
+  logs.push({ step: 'LOGIN', status: 'SUCCESS', command: `apic login --server "${mgmtServer}" --username "${adminUser}" --realm "${adminRealm}"`, message: 'Authenticated to APIC Management server.' });
+
+  const providerOrgs = db.listProviderOrgs();
+  logs.push({ step: 'PROVIDER_ORGS', status: providerOrgs.includes(providerOrg) ? 'SUCCESS' : 'FAILED', command: `apic provider-orgs:list -s "${mgmtServer}"`, message: providerOrgs.includes(providerOrg) ? `Provider org selected: ${providerOrg}` : `Provider org '${providerOrg}' not found` });
+
+  if (!providerOrgs.includes(providerOrg)) {
+    return { success: false, logs, summary: 'Stopped because selected provider org does not exist.' };
+  }
+
+  logs.push({ step: 'ROLE_SELECTION', status: 'SUCCESS', message: `Selected role: ${role}` });
+
+  const existingUser = db.getDirectoryUser(providerOrg, username);
+  logs.push({
+    step: 'CHECK_USER_EXISTS',
+    status: 'SUCCESS',
+    command: `apic users:get -o "${providerOrg}" -s "${mgmtServer}" --user-registry "${ldapRegistry}" "${username}"`,
+    message: existingUser ? `User ${username} already exists in registry.` : `User ${username} not found in registry.`
+  });
+
+  const user = existingUser || db.ensureDirectoryUser(providerOrg, username);
+  if (!existingUser) {
+    logs.push({
+      step: 'CREATE_USER',
+      status: 'SUCCESS',
+      command: `apic users:create -o "${providerOrg}" -s "${mgmtServer}" --user-registry "${ldapRegistry}" user.json`,
+      message: `Created APIC user profile for ${username}.`
+    });
+  }
+
+  logs.push({
+    step: 'GET_USER_URL',
+    status: 'SUCCESS',
+    command: `apic users:get -o "${providerOrg}" -s "${mgmtServer}" --user-registry "${ldapRegistry}" "${username}"`,
+    message: `User URL resolved: ${user.url}`
+  });
+
+  const existingMember = db.getMemberByUsername(providerOrg, username);
+  logs.push({
+    step: 'CHECK_MEMBERSHIP',
+    status: 'SUCCESS',
+    command: `apic members:list -o "${providerOrg}" -s "${mgmtServer}"`,
+    message: existingMember ? `Existing membership found (id: ${existingMember.id})` : 'User is not a member yet.'
+  });
+
+  const upsertResult = db.upsertMember(providerOrg, username, role, user.url);
+  logs.push({
+    step: upsertResult.type === 'CREATED' ? 'CREATE_MEMBER' : 'UPDATE_MEMBER_ROLE',
+    status: 'SUCCESS',
+    command: upsertResult.type === 'CREATED'
+      ? `apic members:create -o "${providerOrg}" -s "${mgmtServer}" member.json`
+      : `apic members:update -o "${providerOrg}" -s "${mgmtServer}" "${upsertResult.member.id}" member.json`,
+    message: upsertResult.type === 'CREATED'
+      ? `Membership created with role '${role}'.`
+      : `Membership updated to role '${role}'.`
+  });
+
+  return { success: true, logs, member: upsertResult.member, summary: 'Operation completed successfully.' };
+};
+
 const serveStatic = (req, res) => {
   let reqPath = req.url === '/' ? '/index.html' : req.url;
   reqPath = reqPath.split('?')[0];
@@ -81,7 +144,8 @@ const server = http.createServer(async (req, res) => {
         users: db.listUsers(),
         roles: ['ADMIN', 'PUBLISHER', 'VIEWER'],
         catalogs: ['sandbox', 'test', 'production'],
-        orgs: ['payments-org', 'retail-org', 'core-bank-org']
+        orgs: db.listProviderOrgs(),
+        task1Roles: ['owner', 'administrator', 'developer', 'viewer']
       });
     }
 
@@ -118,12 +182,27 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ...db.getCounts(), user, canMutate: canMutate(user) });
     }
 
-    if (method === 'POST' && url === '/api/task1/request-access') {
+    if (method === 'POST' && url === '/api/task1/cli-simulate') {
       if (!canMutate(user)) return json(res, 403, { error: 'View-only access' });
       const body = await parseBody(req);
       if (!body) return json(res, 400, { error: 'Invalid JSON body' });
-      const row = db.createApproval('TASK1_ACCESS', body, user.user_id);
-      return json(res, 200, { id: row.id, status: row.status });
+      const required = ['mgmtServer', 'ldapRegistry', 'adminUser', 'adminRealm', 'providerOrg', 'role', 'username'];
+      const missing = required.find((key) => !body[key]);
+      if (missing) return json(res, 400, { error: `Missing field: ${missing}` });
+
+      const executionResult = runTask1CliStyle(body);
+
+      const approval = db.createApproval('TASK1_ACCESS', {
+        ...body,
+        cliLogs: executionResult.logs,
+        cliSummary: executionResult.summary,
+        cliSuccess: executionResult.success
+      }, user.user_id);
+
+      return json(res, 200, {
+        approvalId: approval.id,
+        ...executionResult
+      });
     }
 
     if (method === 'POST' && url === '/api/task2/prepare') {
