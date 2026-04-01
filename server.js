@@ -54,7 +54,8 @@ const buildDiff = (oldApi, nextApi) => {
   return findings;
 };
 
-const runTask1CliStyle = (input) => {
+const runTask1CliStyle = (input, options = {}) => {
+  const execute = Boolean(options.execute);
   const { mgmtServer, ldapRegistry, adminUser, adminRealm, providerOrg, role, username } = input;
   const logs = [];
 
@@ -77,14 +78,20 @@ const runTask1CliStyle = (input) => {
     message: existingUser ? `User ${username} already exists in registry.` : `User ${username} not found in registry.`
   });
 
-  const user = existingUser || db.ensureDirectoryUser(providerOrg, username);
+  let user = existingUser;
   if (!existingUser) {
     logs.push({
       step: 'CREATE_USER',
       status: 'SUCCESS',
       command: `apic users:create -o "${providerOrg}" -s "${mgmtServer}" --user-registry "${ldapRegistry}" user.json`,
-      message: `Created APIC user profile for ${username}.`
+      message: execute
+        ? `Created APIC user profile for ${username}.`
+        : `User creation queued. Will execute after approval.`
     });
+    if (execute) user = db.ensureDirectoryUser(providerOrg, username);
+  }
+  if (!user) {
+    user = { url: `https://mock-apic.local/${providerOrg}/users/${encodeURIComponent(username)}` };
   }
 
   logs.push({
@@ -102,7 +109,9 @@ const runTask1CliStyle = (input) => {
     message: existingMember ? `Existing membership found (id: ${existingMember.id})` : 'User is not a member yet.'
   });
 
-  const upsertResult = db.upsertMember(providerOrg, username, role, user.url);
+  const upsertResult = execute
+    ? db.upsertMember(providerOrg, username, role, user.url)
+    : { type: existingMember ? 'UPDATED' : 'CREATED', member: existingMember || { id: 'PENDING', username, role } };
   logs.push({
     step: upsertResult.type === 'CREATED' ? 'CREATE_MEMBER' : 'UPDATE_MEMBER_ROLE',
     status: 'SUCCESS',
@@ -110,11 +119,18 @@ const runTask1CliStyle = (input) => {
       ? `apic members:create -o "${providerOrg}" -s "${mgmtServer}" member.json`
       : `apic members:update -o "${providerOrg}" -s "${mgmtServer}" "${upsertResult.member.id}" member.json`,
     message: upsertResult.type === 'CREATED'
-      ? `Membership created with role '${role}'.`
-      : `Membership updated to role '${role}'.`
+      ? execute ? `Membership created with role '${role}'.` : `Membership creation queued for approval.`
+      : execute ? `Membership updated to role '${role}'.` : `Membership role update queued for approval.`
   });
 
-  return { success: true, logs, member: upsertResult.member, summary: 'Operation completed successfully.' };
+  return {
+    success: true,
+    logs,
+    member: upsertResult.member,
+    summary: execute
+      ? 'Operation completed successfully.'
+      : 'Pre-check completed. Waiting for approval to execute APIC member changes.'
+  };
 };
 
 const serveStatic = (req, res) => {
@@ -190,7 +206,7 @@ const server = http.createServer(async (req, res) => {
       const missing = required.find((key) => !body[key]);
       if (missing) return json(res, 400, { error: `Missing field: ${missing}` });
 
-      const executionResult = runTask1CliStyle(body);
+      const executionResult = runTask1CliStyle(body, { execute: false });
 
       const approval = db.createApproval('TASK1_ACCESS', {
         ...body,
@@ -304,6 +320,10 @@ const server = http.createServer(async (req, res) => {
 
       db.decideApproval(id, body.decision, user.user_id);
       if (body.decision === 'APPROVED') {
+        if (approval.task_type === 'TASK1_ACCESS') {
+          const executed = runTask1CliStyle(approval.payload, { execute: true });
+          db.updateApprovalPayload(id, { ...approval.payload, executed });
+        }
         if (approval.task_type === 'TASK2_PUBLISH') {
           const { findings, ...apiPayload } = approval.payload;
           db.addApi(apiPayload, approval.requested_by);

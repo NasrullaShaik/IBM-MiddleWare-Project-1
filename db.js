@@ -158,6 +158,15 @@ const db = {
     return state.approvals.find((a) => a.id === id) || null;
   },
 
+  updateApprovalPayload(id, payload) {
+    const approval = this.getApprovalById(id);
+    if (!approval) return null;
+    approval.payload = payload;
+    approval.updated_at = new Date().toISOString();
+    save();
+    return approval;
+  },
+
   decideApproval(id, decision, approvedBy) {
     const approval = this.getApprovalById(id);
     if (!approval) return null;

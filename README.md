@@ -20,7 +20,8 @@ The Task1 UI now models the same flow as your CLI script:
 7. Org membership check
 8. Member create/update with selected role
 
-Every run stores the output as an approval request (`TASK1_ACCESS`) and shows step-by-step logs in the interface.
+Every run first performs a pre-check and creates an approval request (`TASK1_ACCESS`).
+Only after admin approval does backend execution create/update APIC membership.
 
 ## Quick start
 

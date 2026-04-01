@@ -166,8 +166,8 @@ el('task1RunBtn').addEventListener('click', async () => {
     });
 
     renderTask1Timeline(response.logs);
-    showModal('Task1 CLI Workflow Output', `${response.summary}\n\n${response.logs.map((x) => `${x.step}: ${x.message}`).join('\n')}`);
-    toast(`Workflow ${response.success ? 'completed' : 'failed'} | Approval #${response.approvalId}`);
+    showModal('Task1 Pre-check Output', `${response.summary}\n\n${response.logs.map((x) => `${x.step}: ${x.message}`).join('\n')}`);
+    toast(`Pre-check submitted. Await admin approval #${response.approvalId}`);
 
     await Promise.all([refreshDashboard(), refreshApprovals()]);
   } catch (e) {
