@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IBM API Connect Portal</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div id="toast" class="toast hidden"></div>
+
+  <header class="hero">
+    <h1>IBM API Connect Workflow Studio</h1>
+    <p>Dynamic, approval-driven operations for Provider Orgs</p>
+  </header>
+
+  <main>
+    <section id="loginCard" class="card glass">
+      <h2>Secure Login</h2>
+      <div class="form-grid cols-2">
+        <div>
+          <label>User ID</label>
+          <select id="userId"></select>
+        </div>
+        <div>
+          <label>Password</label>
+          <input id="password" type="password" value="Temp#1234" />
+        </div>
+      </div>
+      <button id="loginBtn">Login</button>
+      <p class="hint">Selected users can execute workflows. Others remain view-only.</p>
+    </section>
+
+    <section id="portal" class="hidden">
+      <div class="card stats" id="stats"></div>
+
+      <section class="card glass">
+        <h2>Task 1 - Provider Org Access (CLI-like Flow)</h2>
+        <p class="hint">Modeled from your bash sequence: login → org lookup → user exists check → member create/update.</p>
+
+        <div class="form-grid cols-3">
+          <div><label>Management Server</label><input id="mgmtServer" value="https://your-mgmt-server" /></div>
+          <div><label>LDAP Registry</label><input id="ldapRegistry" value="your-ldap-registry" /></div>
+          <div><label>Admin User</label><input id="adminUser" value="admin" /></div>
+          <div><label>Admin Realm</label><input id="adminRealm" value="provider/default-idp-1" /></div>
+          <div><label>Provider Org</label><select id="providerOrg"></select></div>
+          <div><label>Role</label><select id="task1Role"></select></div>
+          <div><label>LDAP User ID</label><input id="task1Username" placeholder="exact LDAP uid" /></div>
+        </div>
+
+        <div class="actions">
+          <button id="task1RunBtn">Pre-check & Submit for Approval</button>
+        </div>
+
+        <div id="task1Timeline" class="timeline"></div>
+      </section>
+
+      <section class="card">
+        <h2>Approval Queue (Admin)</h2>
+        <div id="approvals"></div>
+      </section>
+    </section>
+  </main>
+
+  <div id="modal" class="modal hidden">
+    <div class="modal-content">
+      <h3 id="modalTitle">Workflow Output</h3>
+      <pre id="modalBody"></pre>
+      <button id="closeModal">Close</button>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
